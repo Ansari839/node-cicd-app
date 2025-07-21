@@ -1,0 +1,39 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [ main ]  # This workflow runs whenever there is a push to the main branch
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest  # Uses GitHub's hosted runner (Ubuntu)
+
+    steps:
+      - name: ✅ Checkout Code
+        uses: actions/checkout@v3  # Checks out the repository code
+
+      - name: 🔧 Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: 🚀 Copy Files to EC2 via SCP
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.HOST }}        # EC2 IP address
+          username: ${{ secrets.USERNAME }}# EC2 username (e.g., ubuntu)
+          key: ${{ secrets.SSH_KEY }}      # EC2 private SSH key
+          source: "."                      # All project files
+          target: "~/node-cicd-app"        # Target directory on EC2
+
+      - name: 🔁 SSH and Start App with PM2
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd ~/node-cicd-app
+            npm install
+            pm2 delete all || true  # Delete any old PM2 processes if running
+            pm2 start index.js --name "node-app"  # Start the app with PM2
